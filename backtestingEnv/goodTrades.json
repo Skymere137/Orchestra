@@ -1,0 +1,61 @@
+[timestamp      2025-07-09 16:55:00
+gmtoffset                        0
+open                        16.375
+high                        16.375
+low                          16.33
+close                        16.33
+volume                        1199
+sma10                     16.07361
+sma50                    15.835122
+chg%                      0.274809
+shares                           0
+entry_price              15.645413
+exit_price               16.240909
+target                   16.240909
+stop                     15.543678
+Name: 2025-07-09 16:55:00, dtype: object, timestamp      2025-08-13 15:15:00
+gmtoffset                        0
+open                         16.44
+high                         16.58
+low                          16.44
+close                        16.58
+volume                        1845
+sma10                       16.249
+sma50                    16.071536
+chg%                      0.851582
+shares                           0
+entry_price              15.333484
+exit_price                16.55104
+target                    16.55104
+stop                     15.125476
+Name: 2025-08-13 15:15:00, dtype: object, timestamp      2025-09-18 14:23:00
+gmtoffset                        0
+open                          17.9
+high                          18.0
+low                        17.8475
+close                         18.0
+volume                        3985
+sma10                      17.8159
+sma50                    16.996908
+chg%                      0.558659
+shares                           0
+entry_price              16.535788
+exit_price               17.925914
+target                   17.925914
+stop                     16.298298
+Name: 2025-09-18 14:23:00, dtype: object, timestamp      2025-10-21 14:58:00
+gmtoffset                        0
+open                          18.4
+high                          18.4
+low                           18.4
+close                         18.4
+volume                         178
+sma10                      18.1905
+sma50                    18.134504
+chg%                           0.0
+shares                           0
+entry_price              17.670286
+exit_price               18.320514
+target                   18.320514
+stop                       17.5592
+Name: 2025-10-21 14:58:00, dtype: object]

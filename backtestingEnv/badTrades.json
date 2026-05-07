@@ -1,0 +1,16 @@
+[timestamp      2025-09-08 13:33:00
+gmtoffset                        0
+open                          15.2
+high                          15.2
+low                          15.13
+close                        15.13
+volume                         221
+sma10                     15.57989
+sma50                    15.255978
+chg%                      0.460526
+shares                           0
+entry_price              15.361115
+exit_price               15.258578
+target                   15.961307
+stop                     15.258578
+Name: 2025-09-08 13:33:00, dtype: object]
