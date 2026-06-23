@@ -14,7 +14,7 @@ class MvAvgCrossover:
         nums = [low + (num * diff) for num in fibonacci_levels]
         return nums
 
-    def make_trade_params(self, row, levels, min_rr=1.5):
+    def make_trade_params(self, row, min_rr=1.5):
         if row["sma10"] > row["sma50"]:
             fib = self.fibonacci(row["sma50"], row["close"])
             
