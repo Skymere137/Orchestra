@@ -31,7 +31,7 @@ def _worker(args):
 good_trades = []
 bad_trades = []
 
-def get_random_files(dir, num=100):
+def get_random_files(dir, num=1000):
     all_files = [f for f in os.listdir(dir) if os.path.isfile(os.path.join(dir, f))]
 
     if len(all_files) <= num:
@@ -74,7 +74,7 @@ class BackTest():
     def __init__(self, strat, r=5, from_date=0):
         self.strat = strat(r)
         self.r = r
-        self.portfolio = 1000
+        self.portfolio = 5000
         self.allowed_buying_power = self.portfolio * .2
         self.shares = 0
         self.avg_r = []
@@ -97,10 +97,10 @@ class BackTest():
         # self.bad_pool = [file[:-5] for file in os.listdir("backtestingEnv/bad_stocks")]
         # self.pool = np.array(self.pool)
 
-    def run_strat(self, ticker="NTLA", min_trade=0.03, time_range=19, return_trades=False):
-        self.data = data_reqs.get_data(ticker)
-        # logger.info(self.data.data)
-        # self.data = EstablishDataframe(f"backtestingEnv/{self.file_path}/{ticker}.json")
+    def run_strat(self, ticker="AAPL", min_trade=0.03, time_range=19, return_trades=False):
+        self.data = data_reqs.get_data(ticker, limit=10000)
+        logger.info(ticker)
+        # self.data = EstablishDataframe(f"{self.file_path}/{ticker}.json")
         self.temp_range = temporal_ranges[time_range]
         self.levels = self.data.levels
         self.data = self.data.data.loc[self.data.data.index > self.from_date]
@@ -112,7 +112,6 @@ class BackTest():
         self.data["exit_price"] = np.nan
         self.data["target"] = np.nan
         self.data["stop"] = np.nan
-        self.data["nyields"] = np.nan
 # For loop that iterates through data rows
         for ei in self.data.index:
             if self.position == 0:
@@ -121,7 +120,8 @@ class BackTest():
             if price < self.allowed_buying_power:
 # If true activate trade
                 if self.position == 0:
-                    entry, stop, target = self.strat.make_trade_params(self.data.loc[ei], self.levels)
+                    entry, stop, target = self.strat.make_trade_params(self.data.loc[ei])
+
                     if not np.isnan(entry):
                         # print(f"run_strat received: entry:{entry:.4f} stop:{stop:.4f} target:{target:.4f}")
                         # print(f"low:{self.data.loc[ei, 'low']:.4f} high:{self.data.loc[ei, 'high']:.4f}")
@@ -152,7 +152,7 @@ class BackTest():
                                     self.data.loc[ei, "entry_price"] = entry
                                     self.data.loc[ei, "target"] = target
                                     self.data.loc[ei, "stop"] = stop
-                                    self.data.loc[ei, "nyields"] = (target - entry)
+                                    
     # If position is open wait til one of two exit params are true
                 elif self.position == 1:
                     self.data.loc[ei, "shares"] = self.shares
@@ -183,12 +183,13 @@ class BackTest():
         
         shares = [share for share in self.data["shares"] if share > 0]
 
-        self.data.loc[exit_rows, "profit"] = ((self.data.loc[exit_rows, "exit_price"] - self.data.loc[exit_rows, "entry_price"]) * self.data.loc[exit_rows, "shares"])
+        self.data.loc[exit_rows, "profit"] = ((self.data.loc[exit_rows, "exit_price"] - self.data.loc[exit_rows, "entry_price"]) * self.data.loc[exit_rows, "shares"]) - 1
 
         green_trades = self.data[self.data["profit"] > 0]
         red_trades = self.data[self.data["profit"] < 0]
 
         self.data["wealth"] = self.data["profit"].cumsum()
+        self.average_profit = self.data["profit"].mean()
 
         win_rate = self.win / (self.win + self.lose) if (self.win + self.lose) != 0 else 0
         
@@ -197,7 +198,6 @@ class BackTest():
         except:
             self.avg_r = 0
         
-        gnumber = (self.data.iloc[-1]["wealth"] * self.total_entries) * win_rate
         # try:
         #     nyields = self.data["nyields"][~np.isnan(self.data["nyields"])]
         #     v = (sum(nyields) / (len(nyields) - 1))
@@ -210,14 +210,14 @@ class BackTest():
         
 # Calculate win rate and write data according to value of "return_trades"
         if return_trades:
-            print(ticker, self.data.iloc[-1]["wealth"], win_rate, self.total_entries, self.avg_r, gnumber)
+            print(ticker, self.data.iloc[-1]["wealth"], self.average_profit, win_rate, self.total_entries, self.avg_r)
             with open("goodTrades.json", "w") as file:
                 file.write(str(good_trades))
             with open("badTrades.json", "w") as file:
                 file.write(str(bad_trades))
             return green_trades, red_trades
         
-        return [self.data.iloc[-1]["wealth"], win_rate, self.total_entries, self.avg_r, gnumber]
+        return [self.data.iloc[-1]["wealth"], self.average_profit, win_rate, self.total_entries, self.avg_r]
     
     def is_in_range(self, now, start, end):
         now_time = now.time()
@@ -233,8 +233,8 @@ class BackTest():
         for l in pool:
             
             try:
-                t, w, n, r, g = self.run_strat(l, min_trade=min_trade)
-                total.append([l, t, w, n, r, g])
+                t, a, w, n, r = self.run_strat(l, min_trade=min_trade)
+                total.append([l, a, t, w, n, r])
                 self.reset()
 
             except Exception as e:
@@ -251,6 +251,8 @@ class BackTest():
             results = p.map(_worker, payloads)
 
         flattened = [row for chunk in results for row in chunk]
+        for f in flattened:
+            logger.info(f)
         return flattened
 
     def splitup(self, lst, n):
