@@ -4,87 +4,31 @@ import pandas as pd
 from backtestingEnv import backtesting
 from strategies import MvAvgCrossover
 
-def plotting_trades(test, ticker):
-    good_trades, bad_trades = test.run_strat(ticker, return_trades=True)
-    good_df = pd.DataFrame(good_trades)
-    bad_df = pd.DataFrame(bad_trades)
-    price_df = test.data
-    # print(price_df["prob_up"])
-
+def plotting_trades(trades_df, price_df):
     if price_df['timestamp'].dtype == 'int64':
         price_df['timestamp'] = pd.to_datetime(price_df['timestamp'], unit='ms')
 
-    if 'timestamp' in good_df.columns and good_df['timestamp'].dtype == 'int64':
-        good_df['timestamp'] = pd.to_datetime(good_df['timestamp'], unit='ms')
-
-    if 'timestamp' in bad_df.columns and bad_df['timestamp'].dtype == 'int64':
-        bad_df['timestamp'] = pd.to_datetime(bad_df['timestamp'], unit='ms')
+    good_trades = trades_df[trades_df['profit'] > 0]
+    bad_trades = trades_df[trades_df['profit'] <= 0]
 
     plt.figure(figsize=(14, 6))
+    plt.plot(price_df['timestamp'], price_df['sma10'], label="SMA10", linewidth=1)
+    plt.plot(price_df['timestamp'], price_df['sma50'], label="SMA50", linewidth=1)
 
-    plt.plot(price_df['timestamp'], price_df['sma10'], label="Price", linewidth=1)
-    plt.plot(price_df['timestamp'], price_df['sma50'], label="Price", linewidth=1)
+    if len(good_trades) > 0:
+        plt.scatter(good_trades['entry_time'], good_trades['entry_price'], color='blue', s=40, label="Entry (Good)", zorder=5)
+        plt.scatter(good_trades['exit_time'], good_trades['exit_price'], color='green', s=40, label="Exit (Good)", zorder=5)
 
-    if len(good_df) > 0:
-        plt.scatter(
-            good_df['timestamp'],
-            good_df['exit_price'],
-            color='green',
-            s=40,
-            label="Good Trades",
-            zorder=5
-        )
-        plt.scatter(
-            good_df['timestamp'],
-            good_df['entry_price'],
-            color='blue',
-            s=40,
-            label="Bad Trades",
-            zorder=5
-        )
-        plt.scatter(
-            good_df['timestamp'],
-            good_df['linear_pred'],
-            color='yellow',
-            s=40,
-            label="Good Trades",
-            zorder=5
-        )
+    if len(bad_trades) > 0:
+        plt.scatter(bad_trades['entry_time'], bad_trades['entry_price'], color='blue', s=40, label="Entry (Bad)", zorder=5)
+        plt.scatter(bad_trades['exit_time'], bad_trades['exit_price'], color='red', s=40, label="Exit (Bad)", zorder=5)
 
-    if len(bad_df) > 0:
-        plt.scatter(
-            bad_df['timestamp'],
-            bad_df['exit_price'],
-            color='red',
-            s=40,
-            label="Bad Trades",
-            zorder=5
-        )
-        plt.scatter(
-            bad_df['timestamp'],
-            bad_df['entry_price'],
-            color='blue',
-            s=40,
-            label="Bad Trades",
-            zorder=5
-        )
-        plt.scatter(
-            good_df['timestamp'],
-            good_df['linear_pred'],
-            color='yellow',
-            s=40,
-            label="Bad Trades",
-            zorder=5
-        )
-
-        plt.title(f"Trades for {ticker}")
-        plt.xlabel("Time")
-        plt.ylabel("Price")
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-
-        plt.tight_layout()
-        plt.show()
+    plt.xlabel("Time")
+    plt.ylabel("Price")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 
 def plot_marketcap_histogram(data: list, bins: int = 50) -> None:

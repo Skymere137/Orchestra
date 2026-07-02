@@ -14,20 +14,27 @@ from backtestingEnv import backtesting
 from annie_reqs import data_reqs
 from backtestingEnv import charting
 from backtestingEnv import mv_avg_backtest
+from strategies import VwapReversion
 
-# pd.set_option("display.max_columns", None)
-# pd.set_option("display.max_rows", None)
-# pd.set_option("display.width", None)
-# pd.set_option("display.max_colwidth", None)
+pd.set_option("display.max_columns", None)
+pd.set_option("display.max_rows", None)
+pd.set_option("display.width", None)
+pd.set_option("display.max_colwidth", None)
 
 # df = data_reqs.get_data("NTLA", tf="1m", limit=10000)
+# print(df.data.index, df.data["angle"])
+
+# day = df.data[df.data["timestamp"].dt.date == df.data["timestamp"].dt.date.iloc[0]]
+# print(day[["timestamp", "close", "vwap", "vwap_std", "z_vwap"]])
+
+strat = MvAvgCrossover
+test = backtesting.BackTest(strat)
+trades, df = test.run_strat("NTLA")
+print(trades)
+charting.plotting_trades(trades, df)
 
 
-# print(new_df.linear_pred(5))
-# print(type(df.data.iloc[0]["timestamp"]))
-# print(type(new_df.data.iloc[0]["timestamp"]))
-df = mv_avg_backtest.df
-mv_avg_backtest.plot_mv_avg_crossover(df.data)
+
 def experiment_one():
     strat = MvAvgCrossover
     backtest = backtesting.BackTest(strat)

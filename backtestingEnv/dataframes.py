@@ -53,14 +53,25 @@ class EstablishDataframe:
         self.data["sma50"] = self.data["close"].rolling(window=50).mean()
         self.data["sma200"] = self.data["close"].rolling(window=200).mean()
 
-        self.data["chg%"] = (self.data["close"] - self.data["open"]).abs()
-        self.data["avg_chg"] = self.data["chg%"].rolling(window=10).mean()
+        # self.data["chg%"] = (self.data["close"] - self.data["open"]).abs()
+        # self.data["avg_chg"] = self.data["chg%"].rolling(window=10).mean()
 
+        self.set_vwap()
+        self.data["z_vwap"] = (self.data["close"] - self.data["vwap"]) / self.data["vwap_std"]
+
+        required_cols = ["sma10", "sma50", "sma200"]
+        
+        self.data = self.data.dropna(subset=required_cols)
+
+        self.data["slope10"] = (self.data["sma10"] - self.data["sma10"].shift(10)) / 10
+        self.data["slope50"] = (self.data["sma50"] - self.data["sma50"].shift(10)) / 10
+
+        self.data["angle"] = (np.degrees(np.atan(self.data["slope10"])) - np.degrees(np.atan(self.data["slope50"])))
         # self.data["chg_std"] = self.data["chg%"].rolling(window=50).std()
         # self.data["5_min_chg"] = self.data["close"].shift(1) - self.data["open"].shift(6)
         # self.data["chg_z"] = (self.data["5_min_chg"] / self.data["chg_std"]).abs()
         
-
+       
         # required_cols = ["open", "high", "low", "close", "sma10", "sma50", "chg%", "chg_std"]
         
         # self.data = self.data.dropna(subset=required_cols)
@@ -73,17 +84,17 @@ class EstablishDataframe:
         # required_cols.append("prob_up")
         # required_cols.append("sma10_up")
 
-        highs = self.data["high"]
-        window_size = 11
-        self.data["new_high"] = (
-            highs == highs.rolling(window_size, center=True).max()
-        )
-        lows = self.data["low"]
-        self.data["new_low"] = (
-            lows == lows.rolling(window_size, center=True).min()
-)       
+#         highs = self.data["high"]
+#         window_size = 11
+#         self.data["new_high"] = (
+#             highs == highs.rolling(window_size, center=True).max()
+#         )
+#         lows = self.data["low"]
+#         self.data["new_low"] = (
+#             lows == lows.rolling(window_size, center=True).min()
+# )       
         # self.set_trend()
-        self.set_vwap()
+        
         # self.data["price_dev"] = (self.data["close"] - self.data["close"].shift(1))
         # self.data["price_std"] = self.data["close"].rolling(10).std()
         # self.data["price_z"] = (self.data["price_dev"] / self.data["price_std"])
@@ -166,7 +177,10 @@ class EstablishDataframe:
         self.data["cumtpv"] = self.data.groupby(self.data.index.date)["TPV"].cumsum()
         self.data["cumvol"] = self.data.groupby(self.data.index.date)["volume"].cumsum()
         self.data["vwap"] = self.data["cumtpv"] / self.data["cumvol"]
-
+        self.data["close_vwap_diff"] = self.data["close"] - self.data["vwap"]
+        self.data["vwap_std"] = self.data.groupby(self.data["timestamp"].dt.date)["close_vwap_diff"].transform(
+            lambda x: x.expanding().std()
+        )
 # Predict the next value of sma10 
     def pred_from_window(self, window, dev):
         return self.sma10_pred(window.to_numpy(), dev)

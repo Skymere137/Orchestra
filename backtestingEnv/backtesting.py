@@ -71,9 +71,8 @@ backtests_date_ranges = (
 
 # Backtesting Object... insert strategy
 class BackTest():
-    def __init__(self, strat, r=5, from_date=0):
-        self.strat = strat(r)
-        self.r = r
+    def __init__(self, strat, from_date=2):
+        self.strat = strat()
         self.portfolio = 5000
         self.allowed_buying_power = self.portfolio * .2
         self.shares = 0
@@ -82,14 +81,11 @@ class BackTest():
         self.from_date = backtests_date_ranges[from_date]
         self.win = 0
         self.lose = 0
-
+        self.trades = pd.DataFrame()
         self.position = 0
         self.current_target = None
         self.current_stop = None
         self.current_entry = None
-
-        self.total_entries = 0
-        self.total_exits = 0
 
         self.file_path = "data/1m"
         self.pool = [file[:-5] for file in get_random_files(self.file_path)]
@@ -97,127 +93,73 @@ class BackTest():
         # self.bad_pool = [file[:-5] for file in os.listdir("backtestingEnv/bad_stocks")]
         # self.pool = np.array(self.pool)
 
-    def run_strat(self, ticker="AAPL", min_trade=0.03, time_range=19, return_trades=False):
-        self.data = data_reqs.get_data(ticker, limit=10000)
+    def run_strat(self, ticker="AAPL", min_trade=0.1, time_range=19, return_trades=False):
+        self.data = data_reqs.get_data(ticker, limit=100000)
         logger.info(ticker)
         # self.data = EstablishDataframe(f"{self.file_path}/{ticker}.json")
         self.temp_range = temporal_ranges[time_range]
-        self.levels = self.data.levels
         self.data = self.data.data.loc[self.data.data.index > self.from_date]
         if self.data.empty:
             return None
 
-        self.data["shares"] = 0
-        self.data["entry_price"] = np.nan
-        self.data["exit_price"] = np.nan
-        self.data["target"] = np.nan
-        self.data["stop"] = np.nan
 # For loop that iterates through data rows
+        trade = {}
         for ei in self.data.index:
-            if self.position == 0:
-                self.data.loc[ei, "shares"] = 0
+
             price = self.data.loc[ei, "close"]
             if price < self.allowed_buying_power:
 # If true activate trade
+                row = self.data.loc[ei]
+                entry, stop, target = self.strat.make_trade_params(row, min_trade)
                 if self.position == 0:
-                    entry, stop, target = self.strat.make_trade_params(self.data.loc[ei])
-
-                    if not np.isnan(entry):
-                        # print(f"run_strat received: entry:{entry:.4f} stop:{stop:.4f} target:{target:.4f}")
-                        # print(f"low:{self.data.loc[ei, 'low']:.4f} high:{self.data.loc[ei, 'high']:.4f}")
-                        # print(f"min_trade check: {(entry - stop):.4f} >= {min_trade}")
-                        # print(f"in range: {self.is_in_range(self.data.loc[ei, 'timestamp'], self.temp_range[0], self.temp_range[1])}")
-                        risk = entry - stop
-                        reward = target - entry
+                    
+                    if entry(row) is True:
                         
-                        rr = reward / risk if risk != 0 else 0
-                        if self.data.loc[ei, "low"] <= entry <= self.data.loc[ei, "high"]:
-                            
-                            if (entry - stop) >= min_trade:
-                                start = self.temp_range[0]
-                                end = self.temp_range[1]
+                        start = self.temp_range[0]
+                        end = self.temp_range[1]
                                 
-                                if self.is_in_range(self.data.loc[ei, "timestamp"], start, end):
-
-                                    self.total_entries += 1
-                                    self.position = 1
-                                    self.current_entry = entry
-                                    self.current_stop = stop
-                                    self.current_target = target
-                                    self.price = self.data.loc[ei, "close"]
-                                    self.shares = math.floor(self.allowed_buying_power / entry)
-                                    self.avg_r.append(rr)
-
-                                    self.data.loc[ei, "shares"] = self.shares
-                                    self.data.loc[ei, "entry_price"] = entry
-                                    self.data.loc[ei, "target"] = target
-                                    self.data.loc[ei, "stop"] = stop
-                                    
-    # If position is open wait til one of two exit params are true
+                        if self.is_in_range(self.data.loc[ei, "timestamp"], start, end):
+                            self.position = 1
+                            trade["entry_time"] = ei
+                            trade["entry_price"] = price
+                            for key, value in self.strat.add_on_entry.items():
+                                trade[key] = value
+                            self.shares = math.floor(self.allowed_buying_power / price)
+                            trade["num_of_shares"] = self.shares
+                    
                 elif self.position == 1:
-                    self.data.loc[ei, "shares"] = self.shares
-                    self.data.loc[ei, "target"] = self.current_target
-                    self.data.loc[ei, "stop"] = self.current_stop
-                    self.data.loc[ei, "entry_price"] = self.current_entry
-                    if price >= self.current_target or price <= self.current_stop:
-                        if price >= self.current_target:
-                            self.win += 1
-                            self.data.loc[ei, "exit_price"] = self.data.loc[ei, "target"]
-                        if price <= self.current_stop:
-                            self.lose += 1
-                            self.data.loc[ei, "exit_price"] = self.data.loc[ei, "stop"]
-
-                        self.total_exits += 1
+                    if stop(row) is True:
                         self.position = 0
-                        self.current_entry = None
-                        self.current_target = None
-                        self.current_stop = None
+                        trade["exit_time"] = ei
+                        trade["exit_price"] = price
+                        trade["profit"] = (trade["exit_price"] - trade["entry_price"])
+                        for key, value in self.strat.add_on_exits.items():
+                            trade[key] = value
+                        new_row = pd.DataFrame([trade])
 
-                else:
-                    self.data.loc[ei, "shares"] = 0
-    
-        self.data["profit"] = 0.0
+                        self.trades = pd.concat([self.trades, new_row])
+                        self.portfolio += trade["profit"]
+                        # logger.info(self.trades)
+                        trade = {}
 
 
-        exit_rows = self.data["exit_price"].notna()
-        
-        shares = [share for share in self.data["shares"] if share > 0]
+                if self.position == 1:
+                    if target(row) is True:
+                        self.position = 0
+                        trade["exit_time"] = ei
+                        trade["exit_price"] = price
+                        trade["profit"] = (trade["exit_price"] - trade["entry_price"]) * self.shares
+                        for key, value in self.strat.add_on_exits.items():
+                            trade[key] = value
+                        new_row = pd.DataFrame([trade])
 
-        self.data.loc[exit_rows, "profit"] = ((self.data.loc[exit_rows, "exit_price"] - self.data.loc[exit_rows, "entry_price"]) * self.data.loc[exit_rows, "shares"]) - 1
-
-        green_trades = self.data[self.data["profit"] > 0]
-        red_trades = self.data[self.data["profit"] < 0]
-
-        self.data["wealth"] = self.data["profit"].cumsum()
-        self.average_profit = self.data["profit"].mean()
-
-        win_rate = self.win / (self.win + self.lose) if (self.win + self.lose) != 0 else 0
-        
-        try:
-            self.avg_r = sum(self.avg_r) / len(self.avg_r)
-        except:
-            self.avg_r = 0
-        
-        # try:
-        #     nyields = self.data["nyields"][~np.isnan(self.data["nyields"])]
-        #     v = (sum(nyields) / (len(nyields) - 1))
-        #     true_yield = v * ((self.avg_r * win_rate) - 1)
-        #     gnumber = ((len(nyields) * true_yield))
-        # except Exception as e:
-        #     print(e)
-        #     true_yield = None
-        #     gnumber = None
-        
-# Calculate win rate and write data according to value of "return_trades"
-        if return_trades:
-            print(ticker, self.data.iloc[-1]["wealth"], self.average_profit, win_rate, self.total_entries, self.avg_r)
-            with open("goodTrades.json", "w") as file:
-                file.write(str(good_trades))
-            with open("badTrades.json", "w") as file:
-                file.write(str(bad_trades))
-            return green_trades, red_trades
-        
-        return [self.data.iloc[-1]["wealth"], self.average_profit, win_rate, self.total_entries, self.avg_r]
+                        self.trades = pd.concat([self.trades, new_row])
+                        self.portfolio += trade["profit"]
+                        # logger.info(self.trades)
+                        trade = {}
+        win_rate = (self.trades["profit"] > 0).sum() / len(self.trades)
+        print(self.portfolio, win_rate)
+        return self.trades, self.data
     
     def is_in_range(self, now, start, end):
         now_time = now.time()
